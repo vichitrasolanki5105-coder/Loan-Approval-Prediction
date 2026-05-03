@@ -85,14 +85,8 @@ button {
     margin-top:20px;
 }
 
-.approved {
-    color:#00ff00;
-    text-shadow:0 0 15px #00ff00;
-}
-.rejected {
-    color:red;
-    text-shadow:0 0 15px red;
-}
+.approved { color:#00ff00; }
+.rejected { color:red; }
 
 .chart-box {
     width:300px;
@@ -114,26 +108,7 @@ td, th {
     border:1px solid #00ff00;
     padding:8px;
 }
-
-/* 🔥 GAUGE STYLE */
-.gauge-container {
-    position: relative;
-    width: 300px;
-    height: 180px;
-    margin: 30px auto;
-}
-
-.gauge-text {
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 22px;
-    font-weight: bold;
-    color: #00ff00;
-}
 </style>
-
 </head>
 
 <body>
@@ -195,7 +170,7 @@ td, th {
 <button>Predict</button>
 </form>
 
-<div id="loading">⏳ Predicting... Please wait</div>
+<div id="loading">⏳ Predicting...</div>
 
 {% if prediction_text %}
 
@@ -205,7 +180,13 @@ td, th {
 
 <p>Confidence: {{ probability }}</p>
 <p>EMI: ₹ {{ emi }}</p>
+
 <p>Interest: {{ interest_rate }}%</p>
+
+{% set t = tenure | int %}
+<p><b>Loan Tenure:</b>
+{{ (t // 12) }} Year {{ (t % 12) }} Month
+</p>
 
 <p><b>Reason:</b> {{ reason }}</p>
 <p><b>Suggestion:</b> {{ suggestion }}</p>
@@ -213,26 +194,24 @@ td, th {
 <progress value="{{ probability }}" max="100"></progress>
 <p>Risk Score: {{ probability }}%</p>
 
-{% set t = tenure | int %}
-<p><b>Loan tenure:</b>
-{{ (t // 12) }} Year {{ (t % 12) }} Month
-</p>
-
 {% endif %}
 
+<!-- PIE -->
 <div class="chart-box">
 <canvas id="pieChart"></canvas>
 </div>
 
+<!-- BAR -->
 <div class="bar-box">
 <canvas id="barChart"></canvas>
 </div>
 
-<h3>History</h3>
+<!-- HISTORY -->
+<h3>Last 10 Records</h3>
 <table>
 <tr><th>Income</th><th>Loan</th><th>CIBIL</th><th>Result</th></tr>
 
-{% for h in history %}
+{% for h in history[-10:] %}
 <tr>
 <td>{{ h.income }}</td>
 <td>{{ h.loan }}</td>
@@ -247,7 +226,7 @@ td, th {
 
 <script>
 
-// 🔥 LOADING
+// LOADING
 function showLoading(){
     document.getElementById("loading").style.display = "block";
 }
@@ -258,38 +237,32 @@ document.getElementById("datetime").innerHTML =
 new Date().toLocaleString();
 },1000);
 
-// MATRIX EFFECT
+// MATRIX
 let c=document.getElementById("matrix");
 let ctx=c.getContext("2d");
 c.height=window.innerHeight;
 c.width=window.innerWidth;
 
 let letters="01";
-let font_size=14;
-let columns=c.width/font_size;
 let drops=[];
-
-for(let x=0;x<columns;x++) drops[x]=1;
+for(let x=0;x<c.width/14;x++) drops[x]=1;
 
 function draw(){
 ctx.fillStyle="rgba(0,0,0,0.05)";
 ctx.fillRect(0,0,c.width,c.height);
 ctx.fillStyle="#0f0";
-ctx.font=font_size+"px monospace";
 
 for(let i=0;i<drops.length;i++){
 let text=letters[Math.floor(Math.random()*letters.length)];
-ctx.fillText(text,i*font_size,drops[i]*font_size);
+ctx.fillText(text,i*14,drops[i]*14);
 
-if(drops[i]*font_size>c.height && Math.random()>0.975)
-drops[i]=0;
-
+if(drops[i]*14>c.height && Math.random()>0.975) drops[i]=0;
 drops[i]++;
 }
 }
 setInterval(draw,33);
 
-// CHARTS
+// PIE
 let approved = Number("{{ approved | default(0) }}");
 let rejected = Number("{{ rejected | default(0) }}");
 
@@ -298,67 +271,38 @@ type:'doughnut',
 data:{labels:['Approved','Rejected'],datasets:[{data:[approved,rejected]}]}
 });
 
-// 🔥 SPEEDOMETER
-let risk = Number("{{ probability | default(0) }}");
-let angle = (risk / 100) * 180;
+// BAR
+let income = Number("{{ income | default(0) }}");
+let loan = Number("{{ loan | default(0) }}");
+let cibil = Number("{{ cibil | default(0) }}");
 
-let ctx2 = document.getElementById("gaugeChart").getContext("2d");
-
-new Chart(ctx2, {
-type: 'doughnut',
-data: {
-datasets: [{
-data: [40,30,30],
-backgroundColor: ['#00ff00','orange','red'],
-borderWidth: 0
-}]
-},
-options: {
-rotation: -90,
-circumference: 180,
-cutout: '70%',
-plugins: {
-legend: { display:false },
-tooltip: { enabled:false }
+new Chart(document.getElementById("barChart"), {
+type:'bar',
+data:{
+labels:['Income','Loan','CIBIL'],
+datasets:[{data:[income, loan, cibil]}]
 }
-},
-plugins: [{
-id:'needle',
-afterDatasetDraw(chart){
-let {ctx} = chart;
-let meta = chart.getDatasetMeta(0);
-let x = meta.data[0].x;
-let y = meta.data[0].y;
-
-ctx.save();
-ctx.translate(x,y);
-ctx.rotate((angle-90)*Math.PI/180);
-
-ctx.beginPath();
-ctx.moveTo(0,-5);
-ctx.lineTo(100,0);
-ctx.lineTo(0,5);
-ctx.fillStyle="#fff";
-ctx.fill();
-
-ctx.beginPath();
-ctx.arc(0,0,5,0,2*Math.PI);
-ctx.fill();
-
-ctx.restore();
-}
-}]
 });
 
-// CONFETTI
+// VOICE
+window.onload = function(){
+
 let result = "{{ prediction_text }}";
 
 if(result && result !== "" && result !== "None"){
-if(result.includes("Approved")){
-confetti();
-speechSynthesis.speak(new SpeechSynthesisUtterance("Loan Approved"));
-}else{
-speechSynthesis.speak(new SpeechSynthesisUtterance("Loan Rejected"));
+
+    let msg = new SpeechSynthesisUtterance();
+
+    if(result.includes("Approved")){
+        confetti();
+        msg.text = "Congratulations! Your loan is approved";
+    } 
+    else{
+        msg.text = "Sorry, your loan is rejected";
+    }
+
+    speechSynthesis.cancel();
+    speechSynthesis.speak(msg);
 }
 }
 

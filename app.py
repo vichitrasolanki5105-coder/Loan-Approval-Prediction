@@ -3,11 +3,12 @@ import sqlite3
 import hashlib
 import pickle
 import numpy as np
+import os
 
 app = Flask(__name__)
 app.secret_key = "flow_secret"
 
-# 🔥 LOAD MODEL (safe)
+# 🔥 LOAD MODEL
 try:
     model = pickle.load(open("model.pkl", "rb"))
 except:
@@ -17,12 +18,7 @@ except:
 def init_db():
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS users(
-            username TEXT UNIQUE,
-            password TEXT
-        )
-    """)
+    c.execute("CREATE TABLE IF NOT EXISTS users(username TEXT UNIQUE, password TEXT)")
     conn.commit()
     conn.close()
 
@@ -32,14 +28,7 @@ init_db()
 def init_history():
     conn = sqlite3.connect("history.db")
     c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS history(
-            income INT,
-            loan INT,
-            cibil INT,
-            result TEXT
-        )
-    """)
+    c.execute("CREATE TABLE IF NOT EXISTS history(income INT, loan INT, cibil INT, result TEXT)")
     conn.commit()
     conn.close()
 
@@ -53,7 +42,7 @@ def hash_pw(p):
 def home():
     return render_template("login.html")
 
-# ---------------- LOGIN (🔥 UPDATED) ----------------
+# ---------------- LOGIN ----------------
 @app.route("/login", methods=["POST"])
 def login():
     u = request.form["username"]
@@ -61,21 +50,40 @@ def login():
 
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
-
-    # 🔍 Check user exists
     c.execute("SELECT * FROM users WHERE username=?", (u,))
     user = c.fetchone()
 
     if not user:
-        return render_template("login.html", error=" User not found")
+        return render_template("login.html", error="❌ User not found")
 
-    # 🔐 Check password
     if user[1] != p:
-        return render_template("login.html", error=" Incorrect Password")
+        return render_template("login.html", error="❌ Incorrect Password")
 
-    # ✅ Success
     session["user"] = u
     return redirect("/dashboard")
+
+# ---------------- REGISTER (🔥 FIXED) ----------------
+@app.route("/register", methods=["GET", "POST"])
+def register():
+
+    if request.method == "POST":
+        u = request.form["username"]
+        p = hash_pw(request.form["password"])
+
+        conn = sqlite3.connect("users.db")
+        c = conn.cursor()
+
+        try:
+            c.execute("INSERT INTO users VALUES(?,?)", (u,p))
+            conn.commit()
+            conn.close()
+            return render_template("login.html", success="✅ Registered successfully")
+
+        except:
+            conn.close()
+            return render_template("login.html", error="❌ User already exists")
+
+    return redirect("/")
 
 # ---------------- DASHBOARD ----------------
 @app.route("/dashboard")
@@ -94,7 +102,10 @@ def dashboard():
                            rejected=0,
                            history=[],
                            income=0,
-                           loan=0)
+                           loan=0,
+                           reason="",
+                           suggestion="",
+                           cibil=0)
 
 # ---------------- PREDICT ----------------
 @app.route("/predict", methods=["POST"])
@@ -118,75 +129,67 @@ def predict():
         interest = 5
 
     tenure = 60
-
     r = interest / (12 * 100)
     emi = int((loan * r * (1 + r)**tenure) / ((1 + r)**tenure - 1))
 
     if model:
         try:
-            input_data = np.array([[income, loan, cibil]])
-            ml_pred = model.predict(input_data)[0]
+            ml_pred = model.predict(np.array([[income, loan, cibil]]))[0]
         except:
             ml_pred = 1
     else:
         ml_pred = 1
 
+    # ---- DECISION LOGIC ----
     if cibil < 550:
-        result = "❌ Rejected (Very Low CIBIL)"
+        result = "❌ Rejected (Low CIBIL)"
         prob = 30
-        reason = "Low Cibil Score"
-        suggestion = "Improve credit score"
-        approved = 0
-        rejected = 1
+        reason = "Low credit score"
+        suggestion = "Improve CIBIL score"
+        approved, rejected = 0, 1
 
     elif emi > (0.6 * monthly_income):
-        result = "❌ Rejected (High EMI Risk)"
+        result = "❌ Rejected (High EMI)"
         prob = 35
-        reason = "EMI too high compared to income"
+        reason = "EMI too high"
         suggestion = "Reduce loan amount"
-        approved = 0
-        rejected = 1
+        approved, rejected = 0, 1
 
     else:
         if ml_pred == 1:
             result = "✅ Approved"
             prob = 90
-            reason = "Strong financial profile"
-            suggestion = "Eligible for loan"
-            approved = 1
-            rejected = 0
+            reason = "Strong profile"
+            suggestion = "Eligible"
+            approved, rejected = 1, 0
         else:
             result = "❌ Rejected"
             prob = 50
-            reason = "ML model rejection"
+            reason = "Model rejection"
             suggestion = "Improve profile"
-            approved = 0
-            rejected = 1
+            approved, rejected = 0, 1
 
         if existing_loan == 1:
             prob -= 10
 
-        # 🔥 JOB LOGIC
         if job == 0:
-            if cibil >= 750 and loan < (income * 2):
-                result = "✅ Approved (Strong Profile, No Job)"
+            if cibil >= 750 and loan < income * 2:
+                result = "✅ Approved (No Job Strong)"
                 prob = 70
-                reason = "High CIBIL compensates for no job"
-                suggestion = "Stable income recommended"
-                approved = 1
-                rejected = 0
+                reason = "High CIBIL compensates"
+                suggestion = "Maintain stability"
+                approved, rejected = 1, 0
             else:
                 result = "❌ Rejected (No Job Risk)"
                 prob = 40
-                reason = "No job increases risk"
+                reason = "No job risk"
                 suggestion = "Get stable income"
-                approved = 0
-                rejected = 1
+                approved, rejected = 0, 1
 
+    # ---- SAVE HISTORY ----
     conn = sqlite3.connect("history.db")
     c = conn.cursor()
-    c.execute("INSERT INTO history VALUES (?,?,?,?)",
-              (income, loan, cibil, result))
+    c.execute("INSERT INTO history VALUES (?,?,?,?)", (income, loan, cibil, result))
     conn.commit()
 
     rows = c.execute("SELECT * FROM history").fetchall()
