@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Loan Approval Prediction</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+<style>
+body {
+    margin:0;
+    font-family:monospace;
+    background:black;
+    color:#00ff00;
+}
+
+#matrix {
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:-1;
+}
+
+.navbar {
+    display:flex;
+    justify-content:space-between;
+    padding:15px;
+    border-bottom:1px solid #00ff00;
+}
+
+.container {
+    width:90%;
+    max-width:900px;
+    margin:auto;
+    margin-top:20px;
+    padding:20px;
+    border:1px solid #00ff00;
+    background:rgba(0,0,0,0.8);
+}
+
+.form-box {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+}
+
+.form-box input {
+    width:300px;
+    padding:10px;
+    background:black;
+    color:#00ff00;
+    border:1px solid #00ff00;
+}
+
+.option-box {
+    display:flex;
+    gap:10px;
+}
+.option-box input { display:none; }
+.option-box label {
+    padding:8px;
+    border:1px solid #00ff00;
+    cursor:pointer;
+}
+.option-box input:checked + label {
+    background:#00ff00;
+    color:black;
+}
+
+button {
+    padding:10px;
+    background:#00ff00;
+    color:black;
+    border:none;
+    cursor:pointer;
+}
+
+#loading {
+    display:none;
+    text-align:center;
+    font-size:18px;
+    margin-top:20px;
+}
+
+.approved {
+    color:#00ff00;
+    text-shadow:0 0 15px #00ff00;
+}
+.rejected {
+    color:red;
+    text-shadow:0 0 15px red;
+}
+
+.chart-box {
+    width:300px;
+    height:300px;
+    margin:20px auto;
+}
+
+.bar-box {
+    width:100%;
+    height:250px;
+}
+
+table {
+    width:100%;
+    margin-top:20px;
+    border-collapse:collapse;
+}
+td, th {
+    border:1px solid #00ff00;
+    padding:8px;
+}
+
+/* 🔥 GAUGE STYLE */
+.gauge-container {
+    position: relative;
+    width: 300px;
+    height: 180px;
+    margin: 30px auto;
+}
+
+.gauge-text {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 22px;
+    font-weight: bold;
+    color: #00ff00;
+}
+</style>
+
+</head>
+
+<body>
+
+<canvas id="matrix"></canvas>
+
+<div class="navbar">
+<div>👤 {{user}}</div>
+<div id="datetime"></div>
+<div><a href="/logout" style="color:#00ff00;">Logout</a></div>
+</div>
+
+<div class="container">
+
+<h2>💻 Loan Approval Prediction</h2>
+
+<form action="/predict" method="post" class="form-box" onsubmit="showLoading()">
+
+<input name="income_annum" placeholder="Income" required>
+<input name="loan_amount" placeholder="Loan Amount" required>
+<input name="cibil_score" placeholder="CIBIL Score" required>
+
+<p>Education</p>
+<div class="option-box">
+<input type="radio" id="g1" name="education" value="1" required>
+<label for="g1">Graduate</label>
+
+<input type="radio" id="g0" name="education" value="0">
+<label for="g0">Not Graduate</label>
+</div>
+
+<p>Do you have a job?</p>
+<div class="option-box">
+<input type="radio" id="j1" name="job" value="1" required>
+<label for="j1">Yes</label>
+
+<input type="radio" id="j0" name="job" value="0">
+<label for="j0">No</label>
+</div>
+
+<p>Self Employed</p>
+<div class="option-box">
+<input type="radio" id="s1" name="self_employed" value="1" required>
+<label for="s1">Yes</label>
+
+<input type="radio" id="s0" name="self_employed" value="0">
+<label for="s0">No</label>
+</div>
+
+<p>Existing Loan</p>
+<div class="option-box">
+<input type="radio" id="e1" name="existing_loan" value="1" required>
+<label for="e1">Yes</label>
+
+<input type="radio" id="e0" name="existing_loan" value="0">
+<label for="e0">No</label>
+</div>
+
+<button>Predict</button>
+</form>
+
+<div id="loading">⏳ Predicting... Please wait</div>
+
+{% if prediction_text %}
+
+<h2 class="{% if 'Approved' in prediction_text %}approved{% else %}rejected{% endif %}">
+{{ prediction_text }}
+</h2>
+
+<p>Confidence: {{ probability }}</p>
+<p>EMI: ₹ {{ emi }}</p>
+<p>Interest: {{ interest_rate }}%</p>
+
+<p><b>Reason:</b> {{ reason }}</p>
+<p><b>Suggestion:</b> {{ suggestion }}</p>
+
+<progress value="{{ probability }}" max="100"></progress>
+<p>Risk Score: {{ probability }}%</p>
+
+{% set t = tenure | int %}
+<p><b>Loan tenure:</b>
+{{ (t // 12) }} Year {{ (t % 12) }} Month
+</p>
+
+{% endif %}
+
+<div class="chart-box">
+<canvas id="pieChart"></canvas>
+</div>
+
+<div class="bar-box">
+<canvas id="barChart"></canvas>
+</div>
+
+<h3>History</h3>
+<table>
+<tr><th>Income</th><th>Loan</th><th>CIBIL</th><th>Result</th></tr>
+
+{% for h in history %}
+<tr>
+<td>{{ h.income }}</td>
+<td>{{ h.loan }}</td>
+<td>{{ h.cibil }}</td>
+<td>{{ h.result }}</td>
+</tr>
+{% endfor %}
+
+</table>
+
+</div>
+
+<script>
+
+// 🔥 LOADING
+function showLoading(){
+    document.getElementById("loading").style.display = "block";
+}
+
+// CLOCK
+setInterval(()=>{
+document.getElementById("datetime").innerHTML =
+new Date().toLocaleString();
+},1000);
+
+// MATRIX EFFECT
+let c=document.getElementById("matrix");
+let ctx=c.getContext("2d");
+c.height=window.innerHeight;
+c.width=window.innerWidth;
+
+let letters="01";
+let font_size=14;
+let columns=c.width/font_size;
+let drops=[];
+
+for(let x=0;x<columns;x++) drops[x]=1;
+
+function draw(){
+ctx.fillStyle="rgba(0,0,0,0.05)";
+ctx.fillRect(0,0,c.width,c.height);
+ctx.fillStyle="#0f0";
+ctx.font=font_size+"px monospace";
+
+for(let i=0;i<drops.length;i++){
+let text=letters[Math.floor(Math.random()*letters.length)];
+ctx.fillText(text,i*font_size,drops[i]*font_size);
+
+if(drops[i]*font_size>c.height && Math.random()>0.975)
+drops[i]=0;
+
+drops[i]++;
+}
+}
+setInterval(draw,33);
+
+// CHARTS
+let approved = Number("{{ approved | default(0) }}");
+let rejected = Number("{{ rejected | default(0) }}");
+
+new Chart(document.getElementById("pieChart"), {
+type:'doughnut',
+data:{labels:['Approved','Rejected'],datasets:[{data:[approved,rejected]}]}
+});
+
+// 🔥 SPEEDOMETER
+let risk = Number("{{ probability | default(0) }}");
+let angle = (risk / 100) * 180;
+
+let ctx2 = document.getElementById("gaugeChart").getContext("2d");
+
+new Chart(ctx2, {
+type: 'doughnut',
+data: {
+datasets: [{
+data: [40,30,30],
+backgroundColor: ['#00ff00','orange','red'],
+borderWidth: 0
+}]
+},
+options: {
+rotation: -90,
+circumference: 180,
+cutout: '70%',
+plugins: {
+legend: { display:false },
+tooltip: { enabled:false }
+}
+},
+plugins: [{
+id:'needle',
+afterDatasetDraw(chart){
+let {ctx} = chart;
+let meta = chart.getDatasetMeta(0);
+let x = meta.data[0].x;
+let y = meta.data[0].y;
+
+ctx.save();
+ctx.translate(x,y);
+ctx.rotate((angle-90)*Math.PI/180);
+
+ctx.beginPath();
+ctx.moveTo(0,-5);
+ctx.lineTo(100,0);
+ctx.lineTo(0,5);
+ctx.fillStyle="#fff";
+ctx.fill();
+
+ctx.beginPath();
+ctx.arc(0,0,5,0,2*Math.PI);
+ctx.fill();
+
+ctx.restore();
+}
+}]
+});
+
+// CONFETTI
+let result = "{{ prediction_text }}";
+
+if(result && result !== "" && result !== "None"){
+if(result.includes("Approved")){
+confetti();
+speechSynthesis.speak(new SpeechSynthesisUtterance("Loan Approved"));
+}else{
+speechSynthesis.speak(new SpeechSynthesisUtterance("Loan Rejected"));
+}
+}
+
+</script>
+
+</body>
+</html>
