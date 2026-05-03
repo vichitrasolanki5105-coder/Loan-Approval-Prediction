@@ -1,0 +1,119 @@
+body {
+    margin:0;
+    font-family:monospace;
+    background:black;
+    color:#00ff00;
+}
+
+/* MATRIX BACKGROUND */
+#matrix {
+    position:fixed;
+    top:0;
+    left:0;
+    z-index:-1;
+}
+
+/* NAVBAR */
+.navbar {
+    display:flex;
+    justify-content:space-between;
+    padding:15px;
+    border-bottom:1px solid #00ff00;
+}
+
+/* MAIN CONTAINER */
+.container {
+    width:90%;
+    max-width:900px;
+    margin:auto;
+    margin-top:20px;
+    padding:20px;
+    border:1px solid #00ff00;
+    background:rgba(0,0,0,0.8);
+}
+
+/* FORM */
+.form-box {
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+}
+
+.form-box input {
+    width:300px;
+    padding:10px;
+    background:black;
+    color:#00ff00;
+    border:1px solid #00ff00;
+}
+
+/* OPTIONS */
+.option-box {
+    display:flex;
+    gap:10px;
+}
+.option-box input { display:none; }
+
+.option-box label {
+    padding:8px;
+    border:1px solid #00ff00;
+    cursor:pointer;
+}
+
+.option-box input:checked + label {
+    background:#00ff00;
+    color:black;
+}
+
+/* BUTTON */
+button {
+    padding:10px;
+    background:#00ff00;
+    color:black;
+    border:none;
+    cursor:pointer;
+}
+
+/* LOADING */
+#loading {
+    display:none;
+    text-align:center;
+    font-size:18px;
+    margin-top:20px;
+}
+
+/* RESULT COLORS */
+.approved {
+    color:#00ff00;
+    text-shadow:0 0 15px #00ff00;
+}
+
+.rejected {
+    color:red;
+    text-shadow:0 0 15px red;
+}
+
+/* CHART */
+.chart-box {
+    width:300px;
+    height:300px;
+    margin:20px auto;
+}
+
+.bar-box {
+    width:100%;
+    height:250px;
+}
+
+/* TABLE */
+table {
+    width:100%;
+    margin-top:20px;
+    border-collapse:collapse;
+}
+
+td, th {
+    border:1px solid #00ff00;
+    padding:8px;
+}

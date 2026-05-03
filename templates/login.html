@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Auth</title>
+
+<script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    height: 100vh;
+    overflow: hidden;
+}
+#tsparticles {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+.container {
+    width: 350px;
+    padding: 25px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    text-align: center;
+    color: white;
+    position: relative;
+    margin: auto;
+    top: 50%;
+    transform: translateY(-50%);
+}
+.toggle-btns {
+    display: flex;
+    margin-bottom: 15px;
+}
+.toggle-btns button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+.toggle-btns button.active {
+    background: #4CAF50;
+}
+input {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 8px;
+    border: none;
+}
+button {
+    width: 100%;
+    padding: 12px;
+    background: #4CAF50;
+    border: none;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+}
+button:hover {
+    background: #45a049;
+}
+.password-box {
+    position: relative;
+}
+.password-box span {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: black;
+}
+.switch-text {
+    margin-top: 10px;
+    cursor: pointer;
+    color: #00ffcc;
+}
+
+/* 🔥 ERROR STYLE */
+.error {
+    color: red;
+    font-weight: bold;
+}
+.success {
+    color: #00ffcc;
+    font-weight: bold;
+}
+</style>
+
+</head>
+<body>
+
+<div id="tsparticles"></div>
+
+<div class="container">
+
+<div class="toggle-btns">
+<button id="loginBtn" class="active" onclick="showLogin()">Sign In</button>
+<button id="registerBtn" onclick="showRegister()">Sign Up</button>
+</div>
+
+<!-- SIGN IN -->
+<div id="loginForm">
+<h2>🔐 Sign In</h2>
+
+<!-- 🔥 ERROR SHOW -->
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+
+{% if success %}
+<p class="success">{{ success }}</p>
+{% endif %}
+
+<form method="post" action="/login">
+
+<input name="username" placeholder="Username" required>
+
+<div class="password-box">
+<input id="loginPassword" name="password" type="password" placeholder="Password" required>
+<span onclick="togglePassword('loginPassword')">👁</span>
+</div>
+
+<button>Sign In</button>
+</form>
+
+<p class="switch-text" onclick="showRegister()">
+Don't have an account? Sign Up
+</p>
+</div>
+
+<!-- SIGN UP -->
+<div id="registerForm" style="display:none;">
+<h2>📝 Sign Up</h2>
+
+<!-- 🔥 ERROR / SUCCESS -->
+{% if error %}
+<p class="error">{{ error }}</p>
+{% endif %}
+
+{% if success %}
+<p class="success">{{ success }}</p>
+{% endif %}
+
+<form method="post" action="/register" onsubmit="return validatePassword()">
+
+<input name="username" placeholder="Username" required>
+
+<div class="password-box">
+<input id="registerPassword" name="password" type="password" placeholder="Password" required>
+<span onclick="togglePassword('registerPassword')">👁</span>
+</div>
+
+<div class="password-box">
+<input id="retypePassword" type="password" placeholder="Retype Password" required>
+<span onclick="togglePassword('retypePassword')">👁</span>
+</div>
+
+<button>Sign Up</button>
+</form>
+
+<p class="switch-text" onclick="showLogin()">
+Already have an account? Sign In
+</p>
+</div>
+
+</div>
+
+<script>
+function showLogin(){
+    document.getElementById("loginForm").style.display="block";
+    document.getElementById("registerForm").style.display="none";
+}
+function showRegister(){
+    document.getElementById("loginForm").style.display="none";
+    document.getElementById("registerForm").style.display="block";
+}
+
+function togglePassword(id){
+    let input = document.getElementById(id);
+    input.type = input.type === "password" ? "text" : "password";
+}
+
+function validatePassword(){
+    let pass = document.getElementById("registerPassword").value;
+    let retype = document.getElementById("retypePassword").value;
+
+    if(pass !== retype){
+        alert("Passwords do not match!");
+        return false;
+    }
+    return true;
+}
+
+tsParticles.load("tsparticles", {
+    background: { color: "#000" },
+    particles: {
+        number: { value: 60 },
+        color: { value: "#ffffff" },
+        size: { value: 2 },
+        move: { enable: true, speed: 1 },
+        links: {
+            enable: true,
+            distance: 120,
+            color: "#ffffff",
+            opacity: 0.3
+        }
+    }
+});
+</script>
+
+</body>
+</html>
