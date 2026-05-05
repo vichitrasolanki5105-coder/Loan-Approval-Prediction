@@ -179,14 +179,15 @@ td, th {
 </h2>
 
 <p>Confidence: {{ probability }}</p>
-<p>EMI: ₹ {{ emi }}</p>
+{% if 'Approved' in prediction_text %}
 
+<p>EMI: ₹ {{ emi }}</p>
 <p>Interest: {{ interest_rate }}%</p>
 
 {% set t = tenure | int %}
-<p><b>Loan Tenure:</b>
-{{ (t // 12) }} Year {{ (t % 12) }} Month
-</p>
+<p>Loan Tenure: {{ (t // 12) }} Year {{ (t % 12) }} Month</p>
+
+{% endif %}
 
 <p><b>Reason:</b> {{ reason }}</p>
 <p><b>Suggestion:</b> {{ suggestion }}</p>
